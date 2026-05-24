@@ -31,6 +31,7 @@ dist/
 .build_*.log
 .train_*.log
 .stacking_*.log
+.tune_*.log
 
 # Heavy generated artifacts (rebuilt locally by scripts)
 artifacts/features/

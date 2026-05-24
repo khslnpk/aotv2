@@ -69,9 +69,11 @@ def _build_sequences(
     return out
 
 
-def _make_model(input_dim: int, num_classes: int):
+def _make_model(input_dim: int, num_classes: int, hidden_size: int = 128, num_layers: int = 3, dropout: float = 0.30):
     torch = _resolve_torch()
     from torch import nn
+
+    bi_dim = hidden_size * 2
 
     class BiLSTMAttn(nn.Module):
         def __init__(self) -> None:
@@ -79,22 +81,22 @@ def _make_model(input_dim: int, num_classes: int):
             self.layer_norm = nn.LayerNorm(input_dim)
             self.lstm = nn.LSTM(
                 input_size=input_dim,
-                hidden_size=128,
-                num_layers=3,
+                hidden_size=hidden_size,
+                num_layers=num_layers,
                 batch_first=True,
-                dropout=0.30,
+                dropout=dropout if num_layers > 1 else 0.0,
                 bidirectional=True,
             )
             self.attn = nn.Sequential(
-                nn.Linear(256, 128),
+                nn.Linear(bi_dim, max(bi_dim // 2, 16)),
                 nn.Tanh(),
-                nn.Linear(128, 1),
+                nn.Linear(max(bi_dim // 2, 16), 1),
             )
             self.head = nn.Sequential(
-                nn.Linear(256, 128),
+                nn.Linear(bi_dim, max(bi_dim // 2, 16)),
                 nn.GELU(),
-                nn.Dropout(0.30),
-                nn.Linear(128, num_classes),
+                nn.Dropout(dropout),
+                nn.Linear(max(bi_dim // 2, 16), num_classes),
             )
 
         def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -166,6 +168,9 @@ def train_sequence_model(
     device_name: str = "auto",
     amp: bool = True,
     focal_gamma: float = 1.5,
+    hidden_size: int = 128,
+    num_layers: int = 3,
+    dropout: float = 0.30,
 ) -> dict:
     torch = _resolve_torch()
     torch.manual_seed(seed)
@@ -211,7 +216,7 @@ def train_sequence_model(
     test_loader = _make_loader(test_seq, y_test, batch_size, False, device)
     all_loader = _make_loader(all_seq, fs.y, batch_size, False, device)
 
-    model = _make_model(fs.X.shape[1], num_classes).to(device)
+    model = _make_model(fs.X.shape[1], num_classes, hidden_size=hidden_size, num_layers=num_layers, dropout=dropout).to(device)
     class_weights = _class_weights(y_train, num_classes, device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-4)
     steps_per_epoch = max(len(train_loader), 1)
@@ -332,6 +337,9 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--patience", type=int, default=10)
     ap.add_argument("--device", choices=["auto", "cuda", "cpu"], default="auto")
     ap.add_argument("--no-amp", action="store_true")
+    ap.add_argument("--hidden-size", type=int, default=128)
+    ap.add_argument("--num-layers", type=int, default=3)
+    ap.add_argument("--dropout", type=float, default=0.30)
     return ap.parse_args()
 
 
@@ -350,6 +358,9 @@ def main() -> None:
         patience=args.patience,
         device_name=args.device,
         amp=not args.no_amp,
+        hidden_size=args.hidden_size,
+        num_layers=args.num_layers,
+        dropout=args.dropout,
     )
 
 

@@ -34,15 +34,21 @@ def _load_v1_metrics() -> list[dict]:
 
 
 def _load_v2_ensemble() -> tuple[list[dict], dict]:
-    ens_path = V2_MODELS / "ensemble" / "ensemble_metrics.json"
-    if not ens_path.exists():
-        return [], {}
-    with ens_path.open("r", encoding="utf-8") as f:
-        payload = json.load(f)
-    rows = []
-    for row in payload.get("rows", []):
-        rows.append({"version": "v2", "family": "ensemble", **row})
-    return rows, payload.get("stacked", {})
+    # Prefer the v2.0 stacking output if present; fall back to the original ensemble dir
+    for subdir, family_label in (("ensemble_v2", "ensemble_v2"), ("ensemble", "ensemble")):
+        candidate = V2_MODELS / subdir
+        for fname in ("ensemble_v2_metrics.json", "ensemble_metrics.json"):
+            path = candidate / fname
+            if not path.exists():
+                continue
+            with path.open("r", encoding="utf-8") as f:
+                payload = json.load(f)
+            rows = []
+            for row in payload.get("rows", []):
+                rows.append({"version": "v2", "family": family_label, **row})
+            if rows:
+                return rows, payload
+    return [], {}
 
 
 def _format_table(rows: list[dict]) -> str:
