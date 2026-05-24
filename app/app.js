@@ -220,9 +220,25 @@ function urlForSubject(id) {
 // =============================================================================
 
 function render(d) {
+  updateOverlayToggles(d);
   renderHero(d);
   renderBento(d);
   renderConstellation();
+}
+
+function updateOverlayToggles(d) {
+  // PSG truth + Motion are only meaningful for the PSG dataset subjects.
+  // Apple Health exports don't include raw accelerometer or ground truth,
+  // so hide those chips and force their overlays off when source=apple_health.
+  const isApple = d.source === "apple_health";
+  const psgChip = document.querySelector('.chip-toggle[data-overlay="psg"]');
+  const motionChip = document.querySelector('.chip-toggle[data-overlay="motion"]');
+  if (psgChip) psgChip.style.display = isApple ? "none" : "";
+  if (motionChip) motionChip.style.display = isApple ? "none" : "";
+  if (isApple) {
+    state.overlay.showPsg = false;
+    state.overlay.showMotion = false;
+  }
 }
 
 function renderHero(d) {

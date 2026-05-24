@@ -51,6 +51,7 @@ html, body {
   -webkit-font-smoothing: antialiased;
   letter-spacing: -0.005em;
   overflow-x: hidden;
+  color-scheme: dark;  /* tells the OS to render native widgets (select popups, scrollbars) in dark mode */
 }
 
 a, button { font-family: inherit; }
@@ -143,9 +144,21 @@ a, button { font-family: inherit; }
   font: 500 14px var(--font-mono);
   padding: 8px 28px 8px 4px;
   cursor: pointer;
+  color-scheme: dark;
 }
 .select-wrap select:focus { outline: none; }
-.select-wrap select option { background: var(--bg-canvas); color: var(--text); }
+.select-wrap select option {
+  background: #12142a;
+  color: var(--text);
+  padding: 6px 8px;
+}
+.select-wrap select optgroup {
+  background: #0a0c1a;
+  color: var(--c-recovery);
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
 .select-caret {
   position: absolute; right: 8px; color: var(--text-muted);
   pointer-events: none; font-size: 10px;
