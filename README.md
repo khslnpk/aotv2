@@ -122,6 +122,34 @@ C:\Users\user\anaconda3\envs\sleep-twin-torch\python.exe -u -m sleep_twin.train_
 
 The final leaderboard lands at `artifacts/models/ensemble/leaderboard.md` and the full writeup at [artifacts/reports/training_summary.md](artifacts/reports/training_summary.md).
 
+## Running the app
+
+A FastAPI server + single-page web app that visualizes any subject's predicted hypnogram, the six Digital Twin scores with full per-component breakdowns, an interactive what-if simulator, and a methodology drawer.
+
+```bash
+.venv/Scripts/python.exe scripts/run_app.py
+# -> http://127.0.0.1:8765
+```
+
+Architecture:
+
+```
+app/                        single-page frontend (no build step)
+├── index.html
+├── styles.css              aurora dark theme, glass bento, segmented dial
+└── app.js                  vanilla — fetch, render, what-if, drawer
+
+src/sleep_twin/inference.py SleepTwinService — loads cached probabilities,
+                            applies HMM/Viterbi smoothing per subject,
+                            computes Sleep + Physio + HumanState
+src/sleep_twin/api.py       FastAPI endpoints: /api/subjects, /api/whatif, /
+scripts/run_app.py          uvicorn launcher
+```
+
+The app does **not** retrain anything — it reuses the per-base-learner probability files already produced by the training pipeline, geometric-mean-averages them, HMM-smooths the result, and runs the Digital Twin scoring on top. Server boots in ~1s.
+
+Score methodology (what feeds each of the 6 scores, with literature references) is documented at [artifacts/reports/digital_twin_methodology.md](artifacts/reports/digital_twin_methodology.md) and surfaced in the app's Methodology drawer (`M` key).
+
 ## What gets ignored by git
 
 `.venv/`, `catboost_info/`, run logs, the feature cache (`artifacts/features/`), all trained model binaries (`artifacts/models/`), and the raw dataset folder. Only the source code, configuration, and small markdown reports are committed.

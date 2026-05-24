@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sleep Twin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+<!-- Aurora background layers -->
+<div class="aurora" aria-hidden="true">
+  <div class="aurora-blob a1"></div>
+  <div class="aurora-blob a2"></div>
+  <div class="aurora-blob a3"></div>
+  <div class="aurora-grain"></div>
+</div>
+
+<!-- Top nav -->
+<header class="nav">
+  <div class="nav-left">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+        <circle cx="16" cy="16" r="14" fill="none" stroke="url(#brand-grad)" stroke-width="2"/>
+        <path d="M8 18 Q 16 6 24 18" fill="none" stroke="url(#brand-grad)" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="22" cy="11" r="1.6" fill="#fff"/>
+        <defs>
+          <linearGradient id="brand-grad" x1="0" y1="0" x2="32" y2="32">
+            <stop offset="0%" stop-color="#8b5cf6"/>
+            <stop offset="100%" stop-color="#00d9c0"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <div class="brand-text">
+        <span class="brand-name">Sleep Twin</span>
+        <span class="brand-sub">Digital recovery atlas</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-center">
+    <div class="subject-picker">
+      <label for="subject-select" class="pick-label">Subject</label>
+      <div class="select-wrap">
+        <select id="subject-select" aria-label="Choose subject"></select>
+        <span class="select-caret" aria-hidden="true">▾</span>
+      </div>
+      <span class="split-pill" id="split-pill" data-split="test">test</span>
+    </div>
+  </div>
+
+  <div class="nav-right">
+    <button class="btn-ghost" id="open-methodology" type="button">
+      <span>Methodology</span>
+      <span class="kbd">M</span>
+    </button>
+  </div>
+</header>
+
+<!-- Main canvas -->
+<main class="canvas">
+
+  <!-- HERO: headline metric + at-a-glance row -->
+  <section class="hero">
+    <div class="hero-left">
+      <div class="eyebrow">tonight's recovery</div>
+      <div class="hero-number">
+        <span id="hero-value">—</span><span class="hero-unit">/100</span>
+      </div>
+      <div class="hero-caption" id="hero-caption">
+        Predicted hypnogram, scored across <em>seven</em> sleep dimensions and four autonomic correlates.
+      </div>
+      <div class="hero-meta">
+        <div class="meta-cell">
+          <span class="meta-k">duration</span>
+          <span class="meta-v" id="meta-duration">— h</span>
+        </div>
+        <div class="meta-cell">
+          <span class="meta-k">efficiency</span>
+          <span class="meta-v" id="meta-efficiency">—%</span>
+        </div>
+        <div class="meta-cell">
+          <span class="meta-k">model agree</span>
+          <span class="meta-v" id="meta-agree">—%</span>
+        </div>
+        <div class="meta-cell">
+          <span class="meta-k">awakenings</span>
+          <span class="meta-v" id="meta-awake">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-right">
+      <div class="dial-wrap">
+        <svg class="dial" viewBox="0 0 220 220" aria-hidden="true">
+          <defs>
+            <linearGradient id="dial-grad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#00d9c0"/>
+              <stop offset="100%" stop-color="#8b5cf6"/>
+            </linearGradient>
+            <filter id="dial-glow"><feGaussianBlur stdDeviation="3"/></filter>
+          </defs>
+          <!-- 8 background segments -->
+          <g id="dial-bg-segments"></g>
+          <!-- foreground segments overlay -->
+          <g id="dial-fg-segments"></g>
+        </svg>
+        <div class="dial-center">
+          <span class="dial-label">recovery</span>
+          <span class="dial-tick" id="dial-tick">—</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BENTO GRID of score cards -->
+  <section class="bento" id="bento">
+    <!-- cards injected by JS -->
+  </section>
+
+  <!-- CONSTELLATION hypnogram -->
+  <section class="constellation-panel">
+    <div class="panel-head">
+      <div>
+        <h2 class="panel-title">Night Constellation</h2>
+        <p class="panel-sub">Each dot is a 30-second epoch. REM stars pulse, NREM is a dim field, Wake spikes.</p>
+      </div>
+      <div class="legend">
+        <span class="legend-item"><span class="dot wake"></span>Wake</span>
+        <span class="legend-item"><span class="dot nrem"></span>NREM</span>
+        <span class="legend-item"><span class="dot rem"></span>REM</span>
+        <span class="legend-divider"></span>
+        <button class="chip-toggle active" data-overlay="hr" type="button">HR</button>
+        <button class="chip-toggle active" data-overlay="motion" type="button">Motion</button>
+        <button class="chip-toggle" data-overlay="psg" type="button">PSG truth</button>
+      </div>
+    </div>
+    <div class="constellation" id="constellation"></div>
+    <div class="time-axis" id="time-axis"></div>
+  </section>
+
+  <!-- WHAT-IF dock -->
+  <section class="whatif">
+    <div class="whatif-head">
+      <h2 class="panel-title">What if…</h2>
+      <p class="panel-sub">Drag the dials. All six scores recompute live.</p>
+    </div>
+    <div class="whatif-body">
+      <div class="dial-control">
+        <div class="dial-control-label">
+          <span class="kk">Sleep cut</span>
+          <span class="vv"><span id="dial-sleep-val">0</span><small>min</small></span>
+        </div>
+        <input type="range" min="0" max="180" step="5" value="0" id="dial-sleep" class="range">
+        <div class="ticks"><span>0</span><span>60</span><span>120</span><span>180</span></div>
+      </div>
+      <div class="dial-control">
+        <div class="dial-control-label">
+          <span class="kk">Extra steps</span>
+          <span class="vv"><span id="dial-steps-val">0</span><small>steps</small></span>
+        </div>
+        <input type="range" min="0" max="15000" step="500" value="0" id="dial-steps" class="range">
+        <div class="ticks"><span>0</span><span>5k</span><span>10k</span><span>15k</span></div>
+      </div>
+      <div class="delta-grid" id="delta-grid">
+        <!-- delta tiles injected by JS -->
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <span>Sleep Twin · v0.2 · geometric-mean ensemble + HMM · 80.4% acc / κ 0.57</span>
+    <span class="footer-right">Engineering estimate — not a medical device.</span>
+  </footer>
+</main>
+
+<!-- Card-detail flip overlay -->
+<div class="flip-overlay" id="flip-overlay" hidden>
+  <div class="flip-card" id="flip-card" role="dialog" aria-modal="true">
+    <button class="flip-close" id="flip-close" aria-label="Close">×</button>
+    <div class="flip-front" id="flip-front"></div>
+    <div class="flip-back" id="flip-back"></div>
+  </div>
+</div>
+
+<!-- Methodology drawer -->
+<aside class="drawer" id="drawer" hidden>
+  <header class="drawer-head">
+    <h2>Methodology</h2>
+    <button class="drawer-close" id="drawer-close" aria-label="Close">×</button>
+  </header>
+  <div class="drawer-body" id="drawer-body">
+    <!-- content injected by JS -->
+  </div>
+</aside>
+
+<div class="scrim" id="scrim" hidden></div>
+
+<script src="/app.js" defer></script>
+</body>
+</html>
