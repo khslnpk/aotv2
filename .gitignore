@@ -36,6 +36,9 @@ dist/
 artifacts/features/
 artifacts/models/
 
+# CatBoost dumps training metadata to CWD
+catboost_info/
+
 # Keep the lightweight markdown reports in artifacts/reports/
 # (no exclusion rule — they are tracked)
 
