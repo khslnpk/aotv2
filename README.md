@@ -1,56 +1,132 @@
-# Sleep Digital Twin v2
+# Sleep Twin
 
-Successor project to the v1 prototype in the parent directory. Goal: keep the same idea (wearable sleep-stage classification → Digital Twin scores) but train a model with better accuracy/macro-F1/kappa than v1 and refactor the application layer for a faster runtime.
+Wearable sleep-stage classifier + Digital Twin scoring layer.
 
-## What is different from v1
+Take 30-second epochs of wrist motion, heart rate, and step data, predict whether each epoch is **Wake / NREM / REM**, smooth the resulting hypnogram, and turn it into a virtual human-state model with six interpretable scores: **recovery, fatigue, stress, energy, sleep quality, sleep debt**.
 
-| Layer | v1 | v2 |
-|---|---|---|
-| Features | 318 (motion + HR + steps + time) | ~430 with per-subject HR/motion normalization, HRV proxies (range, succ-diff RMS, CV), wider rolling windows |
-| Models | ExtraTrees, HistGB, XGBoost, MLP, Temporal CNN, BiLSTM | XGBoost + LightGBM + CatBoost + BiLSTM-attention (focal loss, wider context) + stacked logreg meta-learner |
-| Smoothing | none | HMM/Viterbi post-processor on probability sequences |
-| Class balance | sample-weight | sample-weight + focal loss (γ=1.5) |
-| App | Streamlit | (planned) FastAPI + lightweight web client |
+## Headline accuracy (test set, subject-level split)
 
-## Layout
+| Metric | Value | Model |
+|---|---:|---|
+| Accuracy | **0.8035** | geometric-mean ensemble + HMM |
+| Balanced accuracy | **0.7159** | CatBoost + HMM |
+| Macro F1 | **0.6993** | CatBoost + HMM |
+| Cohen's κ | **0.5695** | geometric-mean ensemble + HMM |
+
+Two co-winners depending on which metric you optimize. Full leaderboard in [artifacts/reports/training_summary.md](artifacts/reports/training_summary.md).
+
+## Project layout
 
 ```
-sleep_twin_v2/
+sleep-twin/
 ├── pyproject.toml
-├── requirements.txt              # base
-├── requirements-cuda.txt         # torch + cu128
-├── src/sleep_twin_v2/
-│   ├── paths.py
-│   ├── labels.py                 # 3-class mapping
-│   ├── splits.py                 # group-aware splits
-│   ├── features.py               # enhanced feature builder
-│   ├── evaluation.py
-│   ├── temporal_smoothing.py     # HMM/Viterbi
-│   ├── train_boosting.py         # XGBoost + LightGBM + CatBoost
-│   ├── train_sequence.py         # BiLSTM-attn + focal loss
-│   ├── stacking.py               # meta-learner + HMM combine
-│   └── digital_twin.py
-├── scripts/train_all.py
-└── artifacts/{features,models,reports}/
+├── requirements.txt              base ML stack (numpy, pandas, sklearn, xgboost, lightgbm, catboost, hmmlearn, optuna, ...)
+├── requirements-cuda.txt         optional CUDA PyTorch (for GPU BiLSTM training)
+│
+├── src/sleep_twin/
+│   ├── paths.py                  path resolution + env-var overrides
+│   ├── labels.py                 PSG -> 3-class (Wake/NREM/REM) mapping
+│   ├── splits.py                 GroupShuffleSplit by subject_id
+│   ├── features.py               feature builder (~540 features per epoch)
+│   ├── evaluation.py             accuracy / balanced acc / macro F1 / kappa / confusion
+│   ├── train_boosting.py         trains XGBoost + LightGBM + CatBoost
+│   ├── tune_catboost.py          Optuna hyperparameter sweep on CatBoost
+│   ├── train_sequence.py         trains BiLSTM with attention pooling + focal loss
+│   ├── temporal_smoothing.py     HMM/Viterbi post-processor
+│   ├── stacking.py               meta-learner + HMM ensemble
+│   └── digital_twin.py           sleep summary + 6 human-state scores + what-if sims
+│
+├── scripts/
+│   ├── train_all.py              end-to-end pipeline (features -> boosters -> tune -> BiLSTM -> stack)
+│   └── merge_probabilities.py    helper to combine per-source probability files
+│
+└── artifacts/
+    ├── features/sleep_features.npz       (.gitignored, ~30 MB; rebuild with `python -m sleep_twin.features`)
+    ├── models/
+    │   ├── boosters/                     (.gitignored) XGB/LGBM/CatBoost + probability cube
+    │   ├── catboost_tuned/               (.gitignored) Optuna-tuned CatBoost + best params
+    │   ├── sequence/                     (.gitignored) BiLSTM checkpoint + probabilities
+    │   └── ensemble/                     (.gitignored) meta-learner + HMM + leaderboard.md
+    └── reports/                          (tracked)
+        └── training_summary.md
 ```
 
-## Quick start
+## Environments
+
+Two Python environments are needed. The main venv handles everything except BiLSTM training. The conda sidecar exists because the main venv's Python 3.12 hit a `c10.dll` init conflict with PyTorch on Windows; isolating the LSTM training into a Python 3.11 conda env was the cleanest fix.
+
+| Env | Python | Used for |
+|---|---|---|
+| `.venv/` (project-local) | 3.12 | features, boosters, Optuna, stacking, HMM, evaluation, scoring |
+| `sleep-twin-torch` (conda) | 3.11 + CPU torch | BiLSTM training only |
+
+### One-time setup
 
 ```bash
-# 1. Build feature cache
-python -m sleep_twin_v2.features
+# Main venv
+python -m venv .venv
+.venv/Scripts/python.exe -m pip install --upgrade pip
+.venv/Scripts/python.exe -m pip install -r requirements.txt optuna
+.venv/Scripts/python.exe -m pip install -e .
 
-# 2. Train everything in one shot
-python scripts/train_all.py
-
-# Or train individually
-python -m sleep_twin_v2.train_boosting
-python -m sleep_twin_v2.train_sequence
-python -m sleep_twin_v2.stacking
+# Sidecar conda env (BiLSTM only)
+conda create -y -n sleep-twin-torch python=3.11
+C:\Users\user\anaconda3\envs\sleep-twin-torch\python.exe -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+C:\Users\user\anaconda3\envs\sleep-twin-torch\python.exe -m pip install numpy pandas scikit-learn joblib tqdm
+C:\Users\user\anaconda3\envs\sleep-twin-torch\python.exe -m pip install -e .
 ```
 
-Outputs land under `artifacts/models/{boosters,sequence,ensemble}/`. The final ensemble leaderboard is written to `artifacts/models/ensemble/leaderboard.md`.
+### Dataset path
 
-## Dataset
+The project uses the Walch et al. wrist-wearable + PSG dataset (~10 GB, not in this repo). By default `src/sleep_twin/paths.py` looks in this order:
+1. `$SLEEP_TWIN_DATA_ROOT` env var
+2. `./motion-and-heart-rate-...` next to this repo
+3. `Desktop/AOT Project/motion-and-heart-rate-...` (historical location on this machine)
 
-Same Walch et al. wrist-wearable + PSG dataset as v1. Path resolves to `../motion-and-heart-rate-...` by default; override with `SLEEP_TWIN_DATA_ROOT`.
+If you move the dataset, set the env var:
+```powershell
+$env:SLEEP_TWIN_DATA_ROOT = "X:\path\to\dataset"
+```
+
+## Running the pipeline
+
+```bash
+# Full pipeline: features -> boosters -> Optuna -> BiLSTM -> merge -> stack
+.venv/Scripts/python.exe scripts/train_all.py
+```
+
+Or run stages individually:
+
+```bash
+# 1. Build feature cache (~6 min, 26 773 epochs x 540 features)
+.venv/Scripts/python.exe -m sleep_twin.features
+
+# 2. Train booster trio (~90 seconds with CUDA XGBoost)
+.venv/Scripts/python.exe -m sleep_twin.train_boosting
+
+# 3. Optuna sweep on CatBoost (~25 min CPU, 25 trials)
+.venv/Scripts/python.exe -m sleep_twin.tune_catboost --n-trials 25
+
+# 4. BiLSTM training (sidecar conda env, CPU)
+C:\Users\user\anaconda3\envs\sleep-twin-torch\python.exe -u -m sleep_twin.train_sequence \
+    --device cpu --epochs 20 --batch-size 512 --sequence-radius 7 \
+    --patience 5 --hidden-size 64 --num-layers 1
+
+# 5. Merge per-source probabilities into one .npz, then stack + HMM smooth
+.venv/Scripts/python.exe scripts/merge_probabilities.py \
+    --booster artifacts/models/boosters/boosting_probabilities.npz \
+    --tuned-catboost artifacts/models/catboost_tuned/catboost_tuned_probabilities.npz \
+    --output artifacts/models/boosters/boosting_probabilities.npz
+.venv/Scripts/python.exe -m sleep_twin.stacking
+```
+
+The final leaderboard lands at `artifacts/models/ensemble/leaderboard.md` and the full writeup at [artifacts/reports/training_summary.md](artifacts/reports/training_summary.md).
+
+## What gets ignored by git
+
+`.venv/`, `catboost_info/`, run logs, the feature cache (`artifacts/features/`), all trained model binaries (`artifacts/models/`), and the raw dataset folder. Only the source code, configuration, and small markdown reports are committed.
+
+## Disclaimers
+
+- The Digital Twin scores (recovery, fatigue, stress, energy, sleep quality, sleep debt) are **derived engineering estimates**, not medical predictions. The training dataset has no ground-truth labels for these.
+- The classifier is trained on 31 subjects from the Walch et al. PhysioNet dataset; generalization to other wearable hardware or longer-form data is not validated.

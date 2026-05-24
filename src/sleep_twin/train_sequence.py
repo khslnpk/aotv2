@@ -21,11 +21,11 @@ import numpy as np
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 
-from sleep_twin_v2.evaluation import evaluate_predictions, metrics_row, write_json
-from sleep_twin_v2.features import load_feature_cache
-from sleep_twin_v2.labels import LABEL_NAMES_3CLASS
-from sleep_twin_v2.paths import DEFAULT_FEATURE_DIR, DEFAULT_MODEL_DIR
-from sleep_twin_v2.splits import make_group_holdout_split, split_subject_summary
+from sleep_twin.evaluation import evaluate_predictions, metrics_row, write_json
+from sleep_twin.features import load_feature_cache
+from sleep_twin.labels import LABEL_NAMES_3CLASS
+from sleep_twin.paths import DEFAULT_FEATURE_DIR, DEFAULT_MODEL_DIR
+from sleep_twin.splits import make_group_holdout_split, split_subject_summary
 
 
 def _resolve_torch():
@@ -283,8 +283,8 @@ def train_sequence_model(
 
     test_pred = np.argmax(test_probs, axis=1)
     metrics = evaluate_predictions(y_test, test_pred, labels)
-    row = metrics_row("bilstm_attention_v2", metrics)
-    write_json(output_dir / "bilstm_attention_v2_metrics.json", metrics)
+    row = metrics_row("bilstm_attention", metrics)
+    write_json(output_dir / "bilstm_attention_metrics.json", metrics)
 
     torch.save(
         {
@@ -293,7 +293,7 @@ def train_sequence_model(
             "num_classes": num_classes,
             "sequence_radius": sequence_radius,
         },
-        output_dir / "bilstm_attention_v2.pt",
+        output_dir / "bilstm_attention.pt",
     )
 
     np.savez_compressed(
@@ -317,7 +317,7 @@ def train_sequence_model(
         writer.writerow(row)
 
     print(
-        f"  bilstm_attention_v2: acc={row['accuracy']:.4f} bal={row['balanced_accuracy']:.4f} "
+        f"  bilstm_attention: acc={row['accuracy']:.4f} bal={row['balanced_accuracy']:.4f} "
         f"macroF1={row['macro_f1']:.4f} kappa={row['cohen_kappa']:.4f}"
     )
     return {"row": row, "proba_path": output_dir / "sequence_probabilities.npz"}
@@ -325,7 +325,7 @@ def train_sequence_model(
 
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="Train improved BiLSTM sequence model.")
-    ap.add_argument("--features", type=Path, default=DEFAULT_FEATURE_DIR / "sleep_features_v2.npz")
+    ap.add_argument("--features", type=Path, default=DEFAULT_FEATURE_DIR / "sleep_features.npz")
     ap.add_argument("--output-dir", type=Path, default=DEFAULT_MODEL_DIR / "sequence")
     ap.add_argument("--test-size", type=float, default=0.2)
     ap.add_argument("--val-size", type=float, default=0.15)

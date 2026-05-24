@@ -23,8 +23,8 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from sleep_twin_v2.labels import LABEL_NAMES_3CLASS, map_sleep_labels_3class
-from sleep_twin_v2.paths import DEFAULT_DATA_ROOT, DEFAULT_FEATURE_DIR
+from sleep_twin.labels import LABEL_NAMES_3CLASS, map_sleep_labels_3class
+from sleep_twin.paths import DEFAULT_DATA_ROOT, DEFAULT_FEATURE_DIR
 
 
 MOTION_WINDOWS = {"30s": 15.0, "120s": 60.0, "300s": 150.0, "600s": 300.0}
@@ -451,7 +451,7 @@ def load_feature_cache(path: Path) -> FeatureSet:
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="Build v2 feature cache.")
     ap.add_argument("--data-root", type=Path, default=DEFAULT_DATA_ROOT)
-    ap.add_argument("--output", type=Path, default=DEFAULT_FEATURE_DIR / "sleep_features_v2.npz")
+    ap.add_argument("--output", type=Path, default=DEFAULT_FEATURE_DIR / "sleep_features.npz")
     return ap.parse_args()
 
 

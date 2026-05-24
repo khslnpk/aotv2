@@ -1,19 +1,14 @@
-"""Retuned stacking + HMM smoothing.
+"""Ensemble stacking + HMM/Viterbi smoothing.
 
-Improvements over the first stacking pass:
-- Drop `class_weight="balanced"` on the meta-learner (the base probabilities
-  already carry calibrated class information; re-weighting over-corrected).
-- Add a CV-fold meta-learner option: fit logistic regression on cross-validated
-  base probabilities from the training set rather than the small val set.
-- Try multiple meta-learner heads (logreg, ridge-regularized softmax, small
-  MLP via sklearn) and pick the best on validation macro-F1.
-- Combine the stacked probabilities with HMM smoothing in a single step.
+Loads per-model class probabilities saved by the boosting and sequence trainers,
+fits a meta-learner on the validation split, then post-processes with HMM/Viterbi
+smoothing fit from training-label transition statistics. Also reports simple
+arithmetic/geometric averaging baselines for ablation.
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 
 import joblib
@@ -21,11 +16,11 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 
-from sleep_twin_v2.evaluation import evaluate_predictions, format_metrics_table, metrics_row, write_json
-from sleep_twin_v2.features import load_feature_cache
-from sleep_twin_v2.labels import LABEL_NAMES_3CLASS
-from sleep_twin_v2.paths import DEFAULT_FEATURE_DIR, DEFAULT_MODEL_DIR
-from sleep_twin_v2.temporal_smoothing import (
+from sleep_twin.evaluation import evaluate_predictions, format_metrics_table, metrics_row, write_json
+from sleep_twin.features import load_feature_cache
+from sleep_twin.labels import LABEL_NAMES_3CLASS
+from sleep_twin.paths import DEFAULT_FEATURE_DIR, DEFAULT_MODEL_DIR
+from sleep_twin.temporal_smoothing import (
     fit_initial_probs,
     fit_transition_matrix,
     smooth_subject_sequences,
@@ -67,11 +62,11 @@ def _concat_sources(boost_path: Path, seq_path: Path | None, split: str) -> tupl
         seq = _load_sequence_probs(seq_path, split)
         if seq is not None:
             matrices.append(seq)
-            sources.append("bilstm_attention_v2")
+            sources.append("bilstm_attention")
     return np.concatenate(matrices, axis=1), sources
 
 
-def stack_and_smooth_v2(
+def stack_and_smooth(
     feature_path: Path,
     booster_dir: Path,
     sequence_dir: Path | None,
@@ -96,7 +91,7 @@ def stack_and_smooth_v2(
     X_train_stack, sources = _concat_sources(boost_proba_path, seq_proba_path, "train")
     X_val_stack, _ = _concat_sources(boost_proba_path, seq_proba_path, "val")
     X_test_stack, _ = _concat_sources(boost_proba_path, seq_proba_path, "test")
-    print(f"[stack-v2] sources: {sources}  feature dim per split: {X_train_stack.shape[1]}")
+    print(f"[stack] sources: {sources}  feature dim per split: {X_train_stack.shape[1]}")
 
     # Meta-learner candidates
     candidates: dict[str, object] = {
@@ -122,13 +117,13 @@ def stack_and_smooth_v2(
         val_pred = np.argmax(val_probs, axis=1)
         val_metrics = evaluate_predictions(y_val, val_pred, labels)
         val_results.append((name, val_metrics["macro_f1"], val_metrics["balanced_accuracy"]))
-        print(f"[stack-v2] {name:15s} val_macroF1={val_metrics['macro_f1']:.4f} val_balAcc={val_metrics['balanced_accuracy']:.4f}")
+        print(f"[stack] {name:15s} val_macroF1={val_metrics['macro_f1']:.4f} val_balAcc={val_metrics['balanced_accuracy']:.4f}")
         if val_metrics["macro_f1"] > best_val_macro:
             best_val_macro = val_metrics["macro_f1"]
             best_name = name
             best_meta = model
 
-    print(f"[stack-v2] best meta-learner: {best_name} (val macroF1={best_val_macro:.4f})")
+    print(f"[stack] best meta-learner: {best_name} (val macroF1={best_val_macro:.4f})")
 
     # HMM fit from training labels
     train_sequences: list[np.ndarray] = []
@@ -147,7 +142,6 @@ def stack_and_smooth_v2(
     stacked_test_probs = best_meta.predict_proba(X_test_stack)
     rows.append(metrics_row(f"stack_{best_name}", evaluate_predictions(y_test, np.argmax(stacked_test_probs, axis=1), labels)))
 
-    # Stacked + HMM smoothing
     smoothed_preds = smooth_subject_sequences(
         proba=stacked_test_probs,
         subject_ids=fs.subject_ids[test_idx],
@@ -158,13 +152,11 @@ def stack_and_smooth_v2(
     smoothed_metrics = evaluate_predictions(y_test, smoothed_preds, labels)
     rows.append(metrics_row(f"stack_{best_name}_hmm", smoothed_metrics))
 
-    # Geometric mean ensemble (often more stable than arithmetic)
     seg_size = num_classes
     base_test = {}
     for i, src in enumerate(sources):
         base_test[src] = X_test_stack[:, i * seg_size : (i + 1) * seg_size]
         rows.append(metrics_row(f"base_{src}", evaluate_predictions(y_test, np.argmax(base_test[src], axis=1), labels)))
-        # also HMM-smooth each base
         preds = smooth_subject_sequences(
             proba=base_test[src],
             subject_ids=fs.subject_ids[test_idx],
@@ -210,10 +202,10 @@ def stack_and_smooth_v2(
             "label_names": labels,
             "val_results": val_results,
         },
-        output_dir / "ensemble_v2.joblib",
+        output_dir / "ensemble.joblib",
     )
     write_json(
-        output_dir / "ensemble_v2_metrics.json",
+        output_dir / "ensemble_metrics.json",
         {
             "best_meta": best_name,
             "best_val_macro_f1": best_val_macro,
@@ -225,30 +217,30 @@ def stack_and_smooth_v2(
         },
     )
 
-    (output_dir / "leaderboard_v2.md").write_text(
-        f"# v2 Stacking-v2 Leaderboard\n\n"
+    (output_dir / "leaderboard.md").write_text(
+        f"# Sleep Twin Ensemble Leaderboard\n\n"
         f"**Best meta-learner**: `{best_name}` (val macro-F1={best_val_macro:.4f})\n\n"
         f"{format_metrics_table(sorted_rows)}\n"
     )
 
-    print("\n=== v2 leaderboard (sorted by macro F1) ===")
+    print("\n=== leaderboard (sorted by macro F1) ===")
     print(format_metrics_table(sorted_rows))
     return {"rows": sorted_rows, "best_meta": best_name}
 
 
 def parse_args() -> argparse.Namespace:
-    ap = argparse.ArgumentParser(description="Retuned stacking + HMM smoothing.")
-    ap.add_argument("--features", type=Path, default=DEFAULT_FEATURE_DIR / "sleep_features_v2.npz")
+    ap = argparse.ArgumentParser(description="Stacking + HMM smoothing.")
+    ap.add_argument("--features", type=Path, default=DEFAULT_FEATURE_DIR / "sleep_features.npz")
     ap.add_argument("--booster-dir", type=Path, default=DEFAULT_MODEL_DIR / "boosters")
     ap.add_argument("--sequence-dir", type=Path, default=DEFAULT_MODEL_DIR / "sequence")
-    ap.add_argument("--output-dir", type=Path, default=DEFAULT_MODEL_DIR / "ensemble_v2")
+    ap.add_argument("--output-dir", type=Path, default=DEFAULT_MODEL_DIR / "ensemble")
     return ap.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     seq_dir = args.sequence_dir if (args.sequence_dir / "sequence_probabilities.npz").exists() else None
-    stack_and_smooth_v2(
+    stack_and_smooth(
         feature_path=args.features,
         booster_dir=args.booster_dir,
         sequence_dir=seq_dir,

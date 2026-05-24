@@ -23,11 +23,11 @@ import joblib
 import numpy as np
 from sklearn.impute import SimpleImputer
 
-from sleep_twin_v2.evaluation import evaluate_predictions, metrics_row, write_json
-from sleep_twin_v2.features import load_feature_cache
-from sleep_twin_v2.labels import LABEL_NAMES_3CLASS
-from sleep_twin_v2.paths import DEFAULT_FEATURE_DIR, DEFAULT_MODEL_DIR
-from sleep_twin_v2.splits import make_group_holdout_split
+from sleep_twin.evaluation import evaluate_predictions, metrics_row, write_json
+from sleep_twin.features import load_feature_cache
+from sleep_twin.labels import LABEL_NAMES_3CLASS
+from sleep_twin.paths import DEFAULT_FEATURE_DIR, DEFAULT_MODEL_DIR
+from sleep_twin.splits import make_group_holdout_split
 
 
 def _objective(trial, X_train, y_train, X_val, y_val, num_classes: int, task_type: str):
@@ -153,7 +153,7 @@ def tune_catboost(
 
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="Optuna sweep on CatBoost hyperparameters.")
-    ap.add_argument("--features", type=Path, default=DEFAULT_FEATURE_DIR / "sleep_features_v2.npz")
+    ap.add_argument("--features", type=Path, default=DEFAULT_FEATURE_DIR / "sleep_features.npz")
     ap.add_argument("--output-dir", type=Path, default=DEFAULT_MODEL_DIR / "catboost_tuned")
     ap.add_argument("--n-trials", type=int, default=30)
     ap.add_argument("--timeout-seconds", type=int, default=1500)

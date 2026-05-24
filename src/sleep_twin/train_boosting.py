@@ -19,11 +19,11 @@ import numpy as np
 from sklearn.impute import SimpleImputer
 from sklearn.utils.class_weight import compute_sample_weight
 
-from sleep_twin_v2.evaluation import evaluate_predictions, metrics_row, write_json
-from sleep_twin_v2.features import load_feature_cache
-from sleep_twin_v2.labels import LABEL_NAMES_3CLASS
-from sleep_twin_v2.paths import DEFAULT_FEATURE_DIR, DEFAULT_MODEL_DIR
-from sleep_twin_v2.splits import make_group_holdout_split, split_subject_summary
+from sleep_twin.evaluation import evaluate_predictions, metrics_row, write_json
+from sleep_twin.features import load_feature_cache
+from sleep_twin.labels import LABEL_NAMES_3CLASS
+from sleep_twin.paths import DEFAULT_FEATURE_DIR, DEFAULT_MODEL_DIR
+from sleep_twin.splits import make_group_holdout_split, split_subject_summary
 
 
 def _xgb(num_classes: int, device: str) -> Any:
@@ -219,7 +219,7 @@ def train_boosters(
 
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="Train boosting ensemble for sleep staging.")
-    ap.add_argument("--features", type=Path, default=DEFAULT_FEATURE_DIR / "sleep_features_v2.npz")
+    ap.add_argument("--features", type=Path, default=DEFAULT_FEATURE_DIR / "sleep_features.npz")
     ap.add_argument("--output-dir", type=Path, default=DEFAULT_MODEL_DIR / "boosters")
     ap.add_argument("--test-size", type=float, default=0.2)
     ap.add_argument("--val-size", type=float, default=0.15)
