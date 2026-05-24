@@ -1,0 +1,44 @@
+# Virtual envs
+.venv/
+venv/
+.python-version
+.env
+.env.*
+
+# Python caches
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+
+# Installation + run logs (created locally during training)
+.install_*.log
+.build_*.log
+.train_*.log
+.stacking_*.log
+
+# Heavy generated artifacts (rebuilt locally by scripts)
+artifacts/features/
+artifacts/models/
+
+# Keep the lightweight markdown reports in artifacts/reports/
+# (no exclusion rule — they are tracked)
+
+# Raw datasets that may be co-located but should never be committed
+motion-and-heart-rate-from-a-wrist-worn-wearable-and-labeled-sleep-from-polysomnography-*/
+apple_health_export/

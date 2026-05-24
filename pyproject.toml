@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sleep-twin-v2"
+version = "0.2.0"
+description = "Improved wearable sleep-stage classifier + Digital Twin with subject-normalized features, HMM smoothing, and stacked ensemble."
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+where = ["src"]
