@@ -53,6 +53,10 @@
   </div>
 
   <div class="nav-right">
+    <button class="btn-ghost btn-accent" id="open-import" type="button" title="Import Apple Health export">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <span>Import Apple Health</span>
+    </button>
     <button class="btn-ghost" id="open-methodology" type="button">
       <span>Methodology</span>
       <span class="kbd">M</span>
@@ -171,10 +175,6 @@
     </div>
   </section>
 
-  <footer class="footer">
-    <span>Sleep Twin · v0.2 · geometric-mean ensemble + HMM · 80.4% acc / κ 0.57</span>
-    <span class="footer-right">Engineering estimate — not a medical device.</span>
-  </footer>
 </main>
 
 <!-- Card-detail flip overlay -->
@@ -183,6 +183,37 @@
     <button class="flip-close" id="flip-close" aria-label="Close">×</button>
     <div class="flip-front" id="flip-front"></div>
     <div class="flip-back" id="flip-back"></div>
+  </div>
+</div>
+
+<!-- Import Apple Health modal -->
+<div class="import-overlay" id="import-overlay" hidden>
+  <div class="import-card" role="dialog" aria-modal="true" aria-labelledby="import-title">
+    <button class="flip-close" id="import-close" aria-label="Close">×</button>
+    <div class="import-title-row">
+      <h2 id="import-title">Import your Apple Watch night</h2>
+      <span class="import-pill">Health.app · Export All Health Data</span>
+    </div>
+    <p class="import-lede">
+      We'll parse your <code>export.zip</code>, find your recent sleep sessions, and score them through the same Digital Twin you see for the PSG subjects. Nothing leaves this machine — uploads live only in this server process and disappear when it stops.
+    </p>
+
+    <ol class="import-steps">
+      <li><strong>iPhone → Health app → profile icon → Export All Health Data.</strong> AirDrop or save the resulting <code>export.zip</code> to this computer.</li>
+      <li>Drop the zip below (or click to choose it). Multi-GB files are fine — we stream-parse it.</li>
+      <li>We pick your most recent night by default. You can switch nights once it's loaded.</li>
+    </ol>
+
+    <label class="dropzone" id="dropzone">
+      <input type="file" id="import-file" accept=".zip,.xml,application/zip,text/xml" hidden />
+      <div class="dropzone-inner">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span class="dropzone-label">Drop <code>export.zip</code> here</span>
+        <span class="dropzone-sub">or click to browse</span>
+      </div>
+    </label>
+
+    <div class="import-status" id="import-status" hidden></div>
   </div>
 </div>
 

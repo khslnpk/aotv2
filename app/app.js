@@ -66,8 +66,9 @@ const SCORE_DEFINITIONS = [
 const SCORE_BY_KEY = Object.fromEntries(SCORE_DEFINITIONS.map(d => [d.key, d]));
 
 let state = {
-  subjects: [],
-  currentSubject: null,
+  subjects: [],          // PSG subjects from /api/subjects
+  uploads: {},           // upload_id -> { nights: [...], label: "Apple Health · 5 nights" }
+  currentSubject: null,  // either a PSG subject id, or "upload:<uid>:<night_id>"
   analysis: null,
   overlay: { showHr: true, showMotion: true, showPsg: false },
 };
@@ -84,7 +85,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     const subjects = await fetchJSON("/api/subjects");
     state.subjects = subjects;
-    populateSubjectSelect(subjects);
+    populateSubjectSelect();
     const initial = (subjects.find(s => s.split === "test") || subjects[0]).id;
     await loadSubject(initial);
   } catch (err) {
@@ -116,12 +117,16 @@ function bindUi() {
 
   document.getElementById("open-methodology").addEventListener("click", openDrawer);
   document.getElementById("drawer-close").addEventListener("click", closeDrawer);
-  document.getElementById("scrim").addEventListener("click", () => { closeDrawer(); closeFlip(); });
+  document.getElementById("scrim").addEventListener("click", () => { closeDrawer(); closeFlip(); closeImport(); });
 
   document.getElementById("flip-close").addEventListener("click", closeFlip);
 
+  document.getElementById("open-import").addEventListener("click", openImport);
+  document.getElementById("import-close").addEventListener("click", closeImport);
+  bindDropzone();
+
   document.addEventListener("keydown", e => {
-    if (e.key === "Escape") { closeFlip(); closeDrawer(); }
+    if (e.key === "Escape") { closeFlip(); closeDrawer(); closeImport(); }
     if (e.key === "m" || e.key === "M") {
       if (document.activeElement && document.activeElement.tagName === "INPUT") return;
       openDrawer();
@@ -139,28 +144,57 @@ async function fetchJSON(url, options) {
   return res.json();
 }
 
-function populateSubjectSelect(subjects) {
+function populateSubjectSelect() {
   const sel = document.getElementById("subject-select");
   sel.innerHTML = "";
-  for (const s of subjects) {
+
+  // Apple Health uploads come first (most actionable, freshly imported)
+  const uploadIds = Object.keys(state.uploads);
+  if (uploadIds.length > 0) {
+    const group = document.createElement("optgroup");
+    group.label = "Your Apple Health nights";
+    for (const uid of uploadIds) {
+      const upload = state.uploads[uid];
+      for (const n of upload.nights) {
+        const opt = document.createElement("option");
+        opt.value = `upload:${uid}:${n.id}`;
+        const stages = n.has_apple_stages ? "fine-grained" : "basic";
+        opt.textContent = `${n.id}  ·  ${n.duration_hours} h  ·  ${stages}`;
+        group.appendChild(opt);
+      }
+    }
+    sel.appendChild(group);
+  }
+
+  const psgGroup = document.createElement("optgroup");
+  psgGroup.label = "PSG dataset subjects";
+  for (const s of state.subjects) {
     const opt = document.createElement("option");
     opt.value = s.id;
     opt.textContent = `${s.id}  ·  ${s.duration_hours} h  ·  ${s.split}`;
-    sel.appendChild(opt);
+    psgGroup.appendChild(opt);
   }
+  sel.appendChild(psgGroup);
 }
 
 async function loadSubject(id) {
   state.currentSubject = id;
   document.getElementById("subject-select").value = id;
-  const subj = state.subjects.find(s => s.id === id);
-  if (subj) {
-    const pill = document.getElementById("split-pill");
-    pill.textContent = subj.split;
-    pill.dataset.split = subj.split;
+
+  const pill = document.getElementById("split-pill");
+  if (id.startsWith("upload:")) {
+    pill.textContent = "apple";
+    pill.dataset.split = "apple";
+  } else {
+    const subj = state.subjects.find(s => s.id === id);
+    if (subj) {
+      pill.textContent = subj.split;
+      pill.dataset.split = subj.split;
+    }
   }
+
   try {
-    const data = await fetchJSON(`/api/subjects/${encodeURIComponent(id)}`);
+    const data = await fetchJSON(urlForSubject(id));
     state.analysis = data;
     render(data);
     document.getElementById("dial-sleep").value = 0;
@@ -171,6 +205,14 @@ async function loadSubject(id) {
   } catch (err) {
     console.error(err);
   }
+}
+
+function urlForSubject(id) {
+  if (id.startsWith("upload:")) {
+    const [, uid, nightId] = id.split(":");
+    return `/api/uploads/${encodeURIComponent(uid)}/nights/${encodeURIComponent(nightId)}`;
+  }
+  return `/api/subjects/${encodeURIComponent(id)}`;
 }
 
 // =============================================================================
@@ -632,16 +674,8 @@ function renderDeltaTiles(baseline, scenario) {
 
 // ------------------ Methodology drawer ------------------
 
-let methodologyCache = null;
-
-async function loadMethodology() {
-  try {
-    // We render a self-contained summary; the full markdown lives in artifacts/reports/
-    methodologyCache = METHODOLOGY_HTML;
-    document.getElementById("drawer-body").innerHTML = methodologyCache;
-  } catch (err) {
-    console.error(err);
-  }
+function loadMethodology() {
+  document.getElementById("drawer-body").innerHTML = METHODOLOGY_HTML;
 }
 
 function openDrawer() {
@@ -650,49 +684,111 @@ function openDrawer() {
 }
 function closeDrawer() {
   document.getElementById("drawer").hidden = true;
-  if (document.getElementById("flip-overlay").hidden) {
+  if (document.getElementById("flip-overlay").hidden && document.getElementById("import-overlay").hidden) {
     document.getElementById("scrim").hidden = true;
   }
 }
 
 const METHODOLOGY_HTML = `
-  <p>Every visible number on this page is a weighted sum of named, individually-bounded components. The breakdown is shown when you tap any score card — this drawer is the full reference.</p>
+  <p>Every score you see on this page is a weighted sum of <em>named</em>, <em>individually-bounded</em> components. Tap any score card for the live breakdown — this drawer is the reference for what every component means and where the target ranges come from.</p>
 
-  <h4>Data sources</h4>
-  <table>
-    <thead><tr><th>Signal</th><th>Used for</th></tr></thead>
-    <tbody>
-      <tr><td>Predicted hypnogram (Wake/NREM/REM)</td><td>every score</td></tr>
-      <tr><td>Wrist heart rate</td><td>recovery, stress, fatigue</td></tr>
-      <tr><td>Wrist accelerometer (ENMO)</td><td>movement context</td></tr>
-      <tr><td>Step counts</td><td>fatigue, stress (activity load)</td></tr>
-    </tbody>
-  </table>
+  <div class="drawer-callout">
+    <strong>Signals available to the scoring layer:</strong> the predicted hypnogram (Wake/NREM/REM, 30-second epochs), wrist heart rate sampled every few seconds, wrist accelerometer (ENMO), and step counts. Nothing else.
+  </div>
 
-  <h3>sleep_quality</h3>
-  <p>Seven components totaling 100: duration (7–9 h), efficiency (≥0.85), REM balance (20–25%), NREM balance (55–65%), WASO penalty (full at 0 min, 0 at ≥90), onset latency (10–20 min), cycle count (4–6 cycles).</p>
+  <h3 data-score="sleep_quality"><span class="score-chip"></span>sleep_quality</h3>
+  <p>Seven components totaling 100: duration (7–9 h), efficiency (≥ 0.85), REM balance (20–25 %), NREM balance (55–65 %), WASO penalty (full points at 0 min, none at ≥ 90), onset latency (10–20 min — both very long <em>and</em> very short are penalized), cycle count (4–6 NREM→REM cycles).</p>
   <p>References: Hirshkowitz 2015 (NSF), Buysse 1989 (PSQI), Carskadon &amp; Dement 2005, Reed &amp; Sacco 2016.</p>
 
-  <h3>sleep_debt</h3>
-  <p>Single-night deficit vs an 8 h target. The Walch dataset has one night per subject so multi-night debt cannot be computed — this is tonight's deficit only.</p>
+  <h3 data-score="sleep_debt"><span class="score-chip"></span>sleep_debt</h3>
+  <p>Tonight's deficit vs an 8 h target: <code>clip((480 − TST_min) / 480 × 100, 0, 100)</code>. The Walch dataset has one night per subject so true multi-night debt cannot be computed — labelled "tonight's deficit" to avoid overclaiming.</p>
 
-  <h3>recovery</h3>
-  <p>With HR: 40 % sleep + 25 % HR dip + 20 % HRV proxy + 15 % HR stability. Without HR: 40 % sleep + 60 % autonomic estimate from <code>resting_hr_delta</code>.</p>
-  <p>References: Trinder 2001, Plews 2013, Walker 2017, Whoop methodology.</p>
+  <h3 data-score="recovery"><span class="score-chip"></span>recovery</h3>
+  <p><strong>With HR (preferred):</strong> 40 % sleep contribution + 25 % HR dip + 20 % HRV proxy + 15 % HR stability through the night.</p>
+  <p><strong>Without HR (fallback):</strong> 40 % sleep contribution + 60 % autonomic estimate from <code>resting_hr_delta</code>.</p>
+  <p>References: Trinder 2001 (autonomic activity during sleep), Plews 2013 (HRV in elite athletes), Walker 2017, Whoop methodology.</p>
 
-  <h3>stress_index</h3>
+  <h3 data-score="stress"><span class="score-chip"></span>stress_index</h3>
   <p>30 % autonomic arousal (inverse HR dip) + 25 % low HRV + 15 % overnight HR climb + 15 % activity load + 15 % sleep inefficiency.</p>
-  <p>Reference: Kim 2018, <em>Stress and HRV: a meta-analysis</em>.</p>
+  <p>Reference: Kim 2018, <em>Stress and heart rate variability: a meta-analysis</em>.</p>
 
-  <h3>fatigue</h3>
+  <h3 data-score="fatigue"><span class="score-chip"></span>fatigue</h3>
   <p>40 % inverse-recovery + 20 % activity load + 20 % sleep deficit + 10 % fragmentation + 10 % overnight strain.</p>
 
-  <h3>energy</h3>
-  <p>Composite: 50 % recovery + 30 % (100 − fatigue) + 20 % sleep_quality.</p>
-
-  <h4>What this dataset cannot support</h4>
-  <p>SpO2 (apnea), core body temperature (circadian), respiratory rate, multi-night history, subjective ratings (PSQI/KSS/RPE), demographics, true beat-to-beat HRV. These limits make the scores <em>physiological correlate estimates</em>, not validated medical predictions.</p>
-
-  <h4>Full reference</h4>
-  <p>The complete methodology with literature citations lives at <code>artifacts/reports/digital_twin_methodology.md</code>.</p>
+  <h3 data-score="energy"><span class="score-chip"></span>energy</h3>
+  <p>Thin composite — felt-sense energy is largely explained by recovery and fatigue together: <code>0.50 × recovery + 0.30 × (100 − fatigue) + 0.20 × sleep_quality</code>.</p>
 `;
+
+// ------------------ Import modal (Apple Health) ------------------
+
+function openImport() {
+  document.getElementById("import-overlay").hidden = false;
+  document.getElementById("scrim").hidden = false;
+  setImportStatus(null);
+}
+function closeImport() {
+  document.getElementById("import-overlay").hidden = true;
+  if (document.getElementById("flip-overlay").hidden && document.getElementById("drawer").hidden) {
+    document.getElementById("scrim").hidden = true;
+  }
+}
+
+function setImportStatus(msg, kind) {
+  const el = document.getElementById("import-status");
+  if (!msg) { el.hidden = true; el.textContent = ""; el.className = "import-status"; return; }
+  el.hidden = false;
+  el.textContent = msg;
+  el.className = "import-status " + (kind || "info");
+}
+
+function bindDropzone() {
+  const dz = document.getElementById("dropzone");
+  const file = document.getElementById("import-file");
+  dz.addEventListener("click", () => file.click());
+  file.addEventListener("change", e => {
+    if (e.target.files && e.target.files[0]) uploadFile(e.target.files[0]);
+  });
+  ["dragenter", "dragover"].forEach(ev =>
+    dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add("dragover"); }));
+  ["dragleave", "drop"].forEach(ev =>
+    dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove("dragover"); }));
+  dz.addEventListener("drop", e => {
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]);
+  });
+}
+
+async function uploadFile(file) {
+  const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+  setImportStatus(`Parsing ${file.name} (${sizeMB} MB) — streaming, this can take a moment…`, "info");
+  const form = new FormData();
+  form.append("file", file);
+  try {
+    const res = await fetch("/api/upload", { method: "POST", body: form });
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.detail || `${res.status} ${res.statusText}`);
+    }
+    const data = await res.json();
+    state.uploads[data.upload_id] = { nights: data.nights };
+    setImportStatus(`Imported ${data.nights.length} night${data.nights.length === 1 ? "" : "s"}. Loading the most recent…`, "success");
+    populateSubjectSelect();
+    const subjectId = `upload:${data.upload_id}:${data.selected_night_id}`;
+    // Render the analysis we already got back, avoiding a redundant round trip
+    state.currentSubject = subjectId;
+    document.getElementById("subject-select").value = subjectId;
+    const pill = document.getElementById("split-pill");
+    pill.textContent = "apple";
+    pill.dataset.split = "apple";
+    state.analysis = data.analysis;
+    render(data.analysis);
+    document.getElementById("dial-sleep").value = 0;
+    document.getElementById("dial-steps").value = 0;
+    document.getElementById("dial-sleep-val").textContent = 0;
+    document.getElementById("dial-steps-val").textContent = 0;
+    renderDeltaTiles(data.analysis.state, data.analysis.state);
+    setTimeout(closeImport, 700);
+  } catch (err) {
+    console.error(err);
+    setImportStatus(`Couldn't import: ${err.message}`, "error");
+  }
+}
