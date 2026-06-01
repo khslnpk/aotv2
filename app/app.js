@@ -67,10 +67,11 @@ const SCORE_BY_KEY = Object.fromEntries(SCORE_DEFINITIONS.map(d => [d.key, d]));
 
 let state = {
   subjects: [],          // PSG subjects from /api/subjects
-  uploads: {},           // upload_id -> { nights: [...], label: "Apple Health · 5 nights" }
+  uploads: {},           // upload_id -> { nights: [...] }
   currentSubject: null,  // either a PSG subject id, or "upload:<uid>:<night_id>"
   analysis: null,
   overlay: { showHr: true, showMotion: true, showPsg: false },
+  showInBedOnly: false,  // toggle in the Apple insights panel
 };
 
 // =============================================================================
@@ -125,6 +126,11 @@ function bindUi() {
   document.getElementById("import-close").addEventListener("click", closeImport);
   bindDropzone();
 
+  document.getElementById("include-inbed").addEventListener("change", e => {
+    state.showInBedOnly = e.target.checked;
+    populateSubjectSelect();
+  });
+
   document.addEventListener("keydown", e => {
     if (e.key === "Escape") { closeFlip(); closeDrawer(); closeImport(); }
     if (e.key === "m" || e.key === "M") {
@@ -146,9 +152,12 @@ async function fetchJSON(url, options) {
 
 function populateSubjectSelect() {
   const sel = document.getElementById("subject-select");
+  const preserved = sel.value;
   sel.innerHTML = "";
 
-  // Apple Health uploads come first (most actionable, freshly imported)
+  // Apple Health uploads come first (most actionable, freshly imported).
+  // Old InBed-only nights are hidden by default and only included if the
+  // user has flipped the toggle in the Apple insights panel.
   const uploadIds = Object.keys(state.uploads);
   if (uploadIds.length > 0) {
     const group = document.createElement("optgroup");
@@ -156,9 +165,10 @@ function populateSubjectSelect() {
     for (const uid of uploadIds) {
       const upload = state.uploads[uid];
       for (const n of upload.nights) {
+        if (!n.has_apple_stages && !state.showInBedOnly) continue;
         const opt = document.createElement("option");
         opt.value = `upload:${uid}:${n.id}`;
-        const stages = n.has_apple_stages ? "fine-grained" : "basic";
+        const stages = n.has_apple_stages ? "fine-grained" : "InBed-only";
         opt.textContent = `${n.id}  ·  ${n.duration_hours} h  ·  ${stages}`;
         group.appendChild(opt);
       }
@@ -175,6 +185,12 @@ function populateSubjectSelect() {
     psgGroup.appendChild(opt);
   }
   sel.appendChild(psgGroup);
+
+  // Try to restore previous selection; if no longer available, leave default.
+  if (preserved) {
+    const stillThere = [...sel.options].some(o => o.value === preserved);
+    if (stillThere) sel.value = preserved;
+  }
 }
 
 async function loadSubject(id) {
@@ -221,9 +237,80 @@ function urlForSubject(id) {
 
 function render(d) {
   updateOverlayToggles(d);
+  renderAppleInsights(d);
   renderHero(d);
   renderBento(d);
   renderConstellation();
+}
+
+// ------------------ Apple Health audit panel ------------------
+
+function renderAppleInsights(d) {
+  const panel = document.getElementById("apple-insights");
+  if (!panel) return;
+  if (d.source !== "apple_health") {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+
+  const fmt = (v, suffix = "", places = 1) => {
+    if (v == null || (typeof v === "number" && !Number.isFinite(v))) return "<small>—</small>";
+    if (typeof v === "number") return `${v.toFixed(places)}${suffix ? ` <small>${suffix}</small>` : ""}`;
+    return String(v);
+  };
+
+  const w = d.apple_wearable_summary || {};
+  const wearableRows = [
+    ["Prior-day steps",          fmt(w.prior_day_steps, "steps", 0)],
+    ["Blended activity (65/35)", fmt(w.blended_activity_steps, "steps", 0)],
+    ["Active energy",            fmt(w.active_energy_kcal, "kcal", 0)],
+    ["Exercise time",            fmt(w.exercise_min, "min", 0)],
+    ["Mean sleep HR",            fmt(w.mean_sleep_hr_bpm, "bpm")],
+    ["HRV SDNN",                 fmt(w.hrv_sdnn_ms, "ms")],
+    ["Resting HR (current)",     fmt(w.resting_hr_current, "bpm")],
+    ["Resting HR baseline",      fmt(w.resting_hr_baseline, "bpm")],
+    ["Resting HR delta",         fmt(w.resting_hr_delta, "bpm")],
+  ];
+  document.getElementById("apple-wearable-dl").innerHTML = wearableRows
+    .map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+
+  const h = d.apple_history_summary || {};
+  const historyRows = [
+    [`Lookback`,                  fmt(h.lookback_days, "days", 0)],
+    ["Avg daily steps",           fmt(h.avg_daily_steps, "", 0)],
+    ["Avg daily active energy",   fmt(h.avg_daily_active_energy_kcal, "kcal", 0)],
+    ["Avg daily exercise",        fmt(h.avg_daily_exercise_min, "min", 0)],
+    ["Recent resting HR baseline", fmt(h.resting_hr_baseline_recent, "bpm")],
+    ["Recent HRV mean",           fmt(h.hrv_recent_mean_ms, "ms")],
+    ["Prior detailed sessions",   fmt(h.detailed_sleep_sessions, "", 0)],
+    ["Prior avg sleep time",      fmt(h.avg_sleep_time_min, "min", 0)],
+    ["Prior avg efficiency",      h.avg_sleep_efficiency != null && Number.isFinite(h.avg_sleep_efficiency) ? `${(h.avg_sleep_efficiency * 100).toFixed(1)} <small>%</small>` : "<small>—</small>"],
+  ];
+  document.getElementById("apple-history-dl").innerHTML = historyRows
+    .map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+
+  const c = d.apple_source_counts || {};
+  const countRows = [
+    ["Sleep records",       fmt(c.sleep, "", 0)],
+    ["Heart-rate samples",  fmt(c.heart_rate, "", 0)],
+    ["HRV SDNN samples",    fmt(c.hrv_sdnn, "", 0)],
+    ["Resting HR samples",  fmt(c.resting_hr, "", 0)],
+    ["Step records",        fmt(c.steps, "", 0)],
+    ["Active energy",       fmt(c.active_energy, "", 0)],
+    ["Exercise minutes",    fmt(c.exercise_time, "", 0)],
+  ];
+  document.getElementById("apple-counts-dl").innerHTML = countRows
+    .map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+
+  const smoothing = d.apple_smoothing || {};
+  const note = document.getElementById("apple-smoothing-note");
+  if (smoothing.epochs_smoothed && smoothing.epochs_smoothed > 0) {
+    note.hidden = false;
+    note.textContent = `Folded ${smoothing.epochs_smoothed} epoch(s) of brief Wake shorter than ${smoothing.wake_blip_minutes ?? 3} min into surrounding sleep.`;
+  } else {
+    note.hidden = true;
+  }
 }
 
 function updateOverlayToggles(d) {

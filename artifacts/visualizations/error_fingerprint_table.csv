@@ -1,0 +1,46 @@
+model,family,true_label,predicted_label,cell,count,row_rate,is_error
+XGBoost (CUDA),Boosting,wake,wake,wake->wake,288,0.5008695652173913,False
+XGBoost (CUDA),Boosting,wake,nrem,wake->nrem,234,0.40695652173913044,True
+XGBoost (CUDA),Boosting,wake,rem,wake->rem,53,0.09217391304347826,True
+XGBoost (CUDA),Boosting,nrem,wake,nrem->wake,174,0.04198841698841699,True
+XGBoost (CUDA),Boosting,nrem,nrem,nrem->nrem,3416,0.8243243243243243,False
+XGBoost (CUDA),Boosting,nrem,rem,nrem->rem,554,0.1336872586872587,True
+XGBoost (CUDA),Boosting,rem,wake,rem->wake,36,0.027671022290545733,True
+XGBoost (CUDA),Boosting,rem,nrem,rem->nrem,401,0.30822444273635663,True
+XGBoost (CUDA),Boosting,rem,rem,rem->rem,864,0.6641045349730976,False
+LightGBM,Boosting,wake,wake,wake->wake,276,0.48,False
+LightGBM,Boosting,wake,nrem,wake->nrem,249,0.4330434782608696,True
+LightGBM,Boosting,wake,rem,wake->rem,50,0.08695652173913043,True
+LightGBM,Boosting,nrem,wake,nrem->wake,144,0.03474903474903475,True
+LightGBM,Boosting,nrem,nrem,nrem->nrem,3591,0.8665540540540541,False
+LightGBM,Boosting,nrem,rem,nrem->rem,409,0.0986969111969112,True
+LightGBM,Boosting,rem,wake,rem->wake,32,0.024596464258262875,True
+LightGBM,Boosting,rem,nrem,rem->nrem,443,0.34050730207532665,True
+LightGBM,Boosting,rem,rem,rem->rem,826,0.6348962336664105,False
+CatBoost,Boosting,wake,wake,wake->wake,345,0.6,False
+CatBoost,Boosting,wake,nrem,wake->nrem,156,0.271304347826087,True
+CatBoost,Boosting,wake,rem,wake->rem,74,0.12869565217391304,True
+CatBoost,Boosting,nrem,wake,nrem->wake,288,0.0694980694980695,True
+CatBoost,Boosting,nrem,nrem,nrem->nrem,3095,0.7468629343629344,False
+CatBoost,Boosting,nrem,rem,nrem->rem,761,0.18363899613899615,True
+CatBoost,Boosting,rem,wake,rem->wake,54,0.0415065334358186,True
+CatBoost,Boosting,rem,nrem,rem->nrem,251,0.1929285165257494,True
+CatBoost,Boosting,rem,rem,rem->rem,996,0.765564950038432,False
+CatBoost (Optuna-tuned),Boosting,wake,wake,wake->wake,322,0.56,False
+CatBoost (Optuna-tuned),Boosting,wake,nrem,wake->nrem,179,0.31130434782608696,True
+CatBoost (Optuna-tuned),Boosting,wake,rem,wake->rem,74,0.12869565217391304,True
+CatBoost (Optuna-tuned),Boosting,nrem,wake,nrem->wake,248,0.059845559845559844,True
+CatBoost (Optuna-tuned),Boosting,nrem,nrem,nrem->nrem,3195,0.7709942084942085,False
+CatBoost (Optuna-tuned),Boosting,nrem,rem,nrem->rem,701,0.16916023166023167,True
+CatBoost (Optuna-tuned),Boosting,rem,wake,rem->wake,44,0.033820138355111454,True
+CatBoost (Optuna-tuned),Boosting,rem,nrem,rem->nrem,236,0.1813989239046887,True
+CatBoost (Optuna-tuned),Boosting,rem,rem,rem->rem,1021,0.7847809377401999,False
+BiLSTM + attention,Sequence,wake,wake,wake->wake,341,0.5930434782608696,False
+BiLSTM + attention,Sequence,wake,nrem,wake->nrem,197,0.3426086956521739,True
+BiLSTM + attention,Sequence,wake,rem,wake->rem,37,0.06434782608695652,True
+BiLSTM + attention,Sequence,nrem,wake,nrem->wake,327,0.0789092664092664,True
+BiLSTM + attention,Sequence,nrem,nrem,nrem->nrem,3198,0.7717181467181468,False
+BiLSTM + attention,Sequence,nrem,rem,nrem->rem,619,0.14937258687258687,True
+BiLSTM + attention,Sequence,rem,wake,rem->wake,88,0.06764027671022291,True
+BiLSTM + attention,Sequence,rem,nrem,rem->nrem,417,0.3205226748654881,True
+BiLSTM + attention,Sequence,rem,rem,rem->rem,796,0.611837048424289,False

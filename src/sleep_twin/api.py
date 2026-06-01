@@ -137,7 +137,11 @@ async def upload(file: UploadFile = File(...)) -> dict[str, Any]:
     upload_id = uuid.uuid4().hex[:12]
     _uploads[upload_id] = {"parsed": parsed, "nights": nights}
 
-    default_night = nights[0]
+    # Default to the most recent detailed-stage night when one exists; old
+    # InBed-only history is hidden from the default selection but still
+    # listed in the response (with has_apple_stages=False).
+    detailed = [n for n in nights if n.has_apple_stages]
+    default_night = (detailed or nights)[0]
     default_analysis = apple_health.analyze_night(parsed, default_night.night_id)
     default_analysis["upload_id"] = upload_id
     default_analysis["subject_id"] = f"upload:{upload_id}:{default_night.night_id}"
@@ -147,6 +151,8 @@ async def upload(file: UploadFile = File(...)) -> dict[str, Any]:
         "nights": [_night_dict(n) for n in nights],
         "selected_night_id": default_night.night_id,
         "analysis": default_analysis,
+        "n_detailed_nights": len(detailed),
+        "n_total_nights": len(nights),
     }
 
 
@@ -213,8 +219,12 @@ def _whatif_from_analysis(analysis: dict[str, Any], lost_minutes: float, extra_s
     sleep = SleepSummary(**analysis["sleep_summary"])
     physio_dict = analysis["physio_summary"]
     physio = PhysioSummary(**physio_dict) if physio_dict else None
-    baseline_steps = float(analysis["steps_total"])
-    base = estimate_human_state(sleep, physio, prior_day_steps=baseline_steps)
+    baseline_inputs = analysis.get("baseline_inputs") or {}
+    baseline_steps = float(baseline_inputs.get("blended_activity_steps", analysis["steps_total"]))
+    resting_hr_delta = float(baseline_inputs.get("resting_hr_delta", 0.0))
+    base = estimate_human_state(
+        sleep, physio, prior_day_steps=baseline_steps, resting_hr_delta=resting_hr_delta
+    )
 
     modified = base
     if lost_minutes > 0:

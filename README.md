@@ -124,12 +124,74 @@ The final leaderboard lands at `artifacts/models/ensemble/leaderboard.md` and th
 
 ## Running the app
 
-A FastAPI server + single-page web app that visualizes any subject's predicted hypnogram, the six Digital Twin scores with full per-component breakdowns, an interactive what-if simulator, and a methodology drawer.
+A FastAPI server + single-page web app that visualizes any subject's predicted hypnogram, the six Digital Twin scores with full per-component breakdowns, an interactive what-if simulator, an Apple Health import path, and a methodology drawer.
 
 ```bash
 .venv/Scripts/python.exe scripts/run_app.py
 # -> http://127.0.0.1:8765
 ```
+
+### Running from a freshly booted laptop
+
+The steps below assume Windows + the `.venv/` already exists at the repo root (created during initial setup). If you haven't cloned yet, do that first:
+
+```bash
+git clone https://github.com/khslnpk/aotv2.git sleep-twin
+cd sleep-twin
+```
+
+**Step 1 — One-time environment setup (only if `.venv/` does not already exist):**
+
+```bash
+python -m venv .venv
+.venv/Scripts/python.exe -m pip install --upgrade pip
+.venv/Scripts/python.exe -m pip install -r requirements.txt
+.venv/Scripts/python.exe -m pip install -e .
+
+# Sidecar conda env (only needed if you'll re-train the BiLSTM)
+conda create -y -n sleep-twin-torch python=3.11
+C:\Users\user\anaconda3\envs\sleep-twin-torch\python.exe -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+C:\Users\user\anaconda3\envs\sleep-twin-torch\python.exe -m pip install numpy pandas scikit-learn joblib tqdm
+C:\Users\user\anaconda3\envs\sleep-twin-torch\python.exe -m pip install -e .
+```
+
+**Step 2 — Make sure the trained model artifacts are present.** They are gitignored, so a fresh clone will not have them. Check:
+
+```bash
+ls artifacts/models/ensemble/ensemble.joblib
+ls artifacts/models/boosters/boosting_probabilities.npz
+ls artifacts/models/sequence/sequence_probabilities.npz
+ls artifacts/features/sleep_features.npz
+```
+
+If any of those are missing, rebuild from scratch (~40 min total wall time on the spec machine):
+
+```bash
+# Make sure the dataset is reachable (env var or default location)
+# $env:SLEEP_TWIN_DATA_ROOT = "C:\path\to\motion-and-heart-rate-from-a-wrist-worn-wearable-..."
+
+.venv/Scripts/python.exe scripts/train_all.py
+```
+
+`train_all.py` runs the full pipeline: features → boosters (XGB/LGBM/CatBoost) → Optuna tune → BiLSTM (via the sidecar conda env) → merge probabilities → stacking + HMM. Add `--skip-tune` and/or `--skip-sequence` to shorten the run.
+
+**Step 3 — Boot the app.** Two commands from a cold laptop:
+
+```bash
+cd "C:\Users\user\OneDrive\Desktop\sleep-twin"
+.venv/Scripts/python.exe scripts/run_app.py
+```
+
+Then open **http://127.0.0.1:8765** in any modern browser.
+
+**Useful flags:**
+
+```bash
+.venv/Scripts/python.exe scripts/run_app.py --host 0.0.0.0 --port 9000  # bind to LAN, custom port
+.venv/Scripts/python.exe scripts/run_app.py --reload                    # auto-reload on code changes
+```
+
+**To stop:** press `Ctrl+C` in the terminal. The in-memory upload store (Apple Health imports) is cleared on shutdown — re-uploading takes a few seconds.
 
 Architecture:
 

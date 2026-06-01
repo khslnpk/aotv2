@@ -425,6 +425,111 @@ a, button { font-family: inherit; }
 .card.size-sm { grid-column: span 3; grid-row: span 1; }
 .card.size-wide { grid-column: span 6; grid-row: span 1; }
 
+/* ----------------- Apple Health audit panel ----------------- */
+
+.apple-insights {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px 28px;
+  backdrop-filter: blur(30px) saturate(150%);
+  box-shadow: var(--shadow-card);
+}
+.apple-insights[hidden] { display: none; }
+
+.apple-night-toggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  font: 500 11px var(--font-mono);
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.apple-night-toggle input[type="checkbox"] {
+  appearance: none;
+  width: 16px; height: 16px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border-hi);
+  border-radius: 4px;
+  cursor: pointer;
+  position: relative;
+}
+.apple-night-toggle input[type="checkbox"]:checked {
+  background: var(--c-recovery);
+  border-color: var(--c-recovery);
+}
+.apple-night-toggle input[type="checkbox"]:checked::after {
+  content: "✓";
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: #06070d; font-weight: 700;
+}
+.apple-night-toggle label { cursor: pointer; }
+
+.apple-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1.2fr 0.8fr;
+  gap: 18px;
+  margin-top: 16px;
+}
+.apple-card {
+  padding: 16px 18px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+.apple-card-title {
+  font: 500 11px var(--font-mono);
+  letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--c-recovery);
+  margin-bottom: 12px;
+}
+.apple-dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.apple-dl dt {
+  color: var(--text-faint);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.apple-dl dd {
+  margin: 0;
+  color: var(--text);
+  text-align: right;
+  font-feature-settings: "tnum";
+}
+.apple-dl dd small {
+  color: var(--text-faint);
+  margin-left: 4px;
+  font-size: 10.5px;
+}
+.apple-smoothing-note {
+  margin-top: 14px;
+  padding: 8px 10px;
+  font: 500 11px var(--font-mono);
+  color: var(--text-muted);
+  background: rgba(0,217,192,0.06);
+  border-left: 2px solid var(--c-recovery);
+  border-radius: 0 6px 6px 0;
+  line-height: 1.5;
+}
+.apple-smoothing-note[hidden] { display: none; }
+
+@media (max-width: 1100px) {
+  .apple-grid { grid-template-columns: 1fr 1fr; }
+  .apple-card-thin { grid-column: span 2; }
+}
+@media (max-width: 640px) {
+  .apple-grid { grid-template-columns: 1fr; }
+  .apple-card-thin { grid-column: auto; }
+}
+
 /* ----------------- Constellation hypnogram ----------------- */
 
 .constellation-panel {

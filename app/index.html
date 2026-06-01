@@ -125,6 +125,38 @@
     <!-- cards injected by JS -->
   </section>
 
+  <!-- APPLE-ONLY insights panel (shown only when source = apple_health) -->
+  <section class="apple-insights" id="apple-insights" hidden>
+    <div class="panel-head">
+      <div>
+        <h2 class="panel-title">Apple Health Audit</h2>
+        <p class="panel-sub">Every value the Digital Twin used for this night, and the 7-day history that fed the baselines.</p>
+      </div>
+      <div class="legend">
+        <span class="apple-night-toggle">
+          <input type="checkbox" id="include-inbed">
+          <label for="include-inbed">Include old InBed-only nights</label>
+        </span>
+      </div>
+    </div>
+
+    <div class="apple-grid">
+      <div class="apple-card">
+        <div class="apple-card-title">Tonight's wearable summary</div>
+        <dl class="apple-dl" id="apple-wearable-dl"></dl>
+      </div>
+      <div class="apple-card">
+        <div class="apple-card-title">7-day history context</div>
+        <dl class="apple-dl" id="apple-history-dl"></dl>
+      </div>
+      <div class="apple-card apple-card-thin">
+        <div class="apple-card-title">Records parsed</div>
+        <dl class="apple-dl" id="apple-counts-dl"></dl>
+        <div class="apple-smoothing-note" id="apple-smoothing-note"></div>
+      </div>
+    </div>
+  </section>
+
   <!-- CONSTELLATION hypnogram -->
   <section class="constellation-panel">
     <div class="panel-head">

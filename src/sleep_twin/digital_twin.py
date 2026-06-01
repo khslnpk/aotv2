@@ -33,7 +33,8 @@ _WASO_FULL_PENALTY_MIN = 90.0               # WASO ≥ 90 min = full penalty
 _OPTIMAL_CYCLE_COUNT = (4.0, 6.0)           # 4-6 NREM->REM cycles per night
 _OPTIMAL_HR_DIP = 0.10                      # 10% drop from waking baseline
 _BAD_HR_DRIFT_BPM_PER_HR = 5.0              # +5 bpm/hr through the night = bad
-_HRV_PROXY_GOOD = 8.0                       # bpm-units of succ-diff RMS
+_HRV_PROXY_GOOD = 8.0                       # bpm-units of succ-diff RMS (proxy)
+_HRV_SDNN_GOOD_MS = 50.0                    # SDNN ≥ 50 ms = healthy adult overnight HRV
 _STEPS_HIGH_LOAD = 14000.0                  # daily step count baseline
 _RESTING_HR_DELTA_HIGH = 15.0               # bpm above baseline that = full stress
 
@@ -62,7 +63,14 @@ class SleepSummary:
 
 @dataclass(frozen=True)
 class PhysioSummary:
-    """Autonomic and movement summary derived from raw HR and motion during sleep."""
+    """Autonomic and movement summary derived from raw HR and motion during sleep.
+
+    `hrv_sdnn_ms` is the *real* RMS-of-successive-NN-intervals HRV in
+    milliseconds (e.g. as reported by Apple Health). When present, the
+    scoring layer prefers it over the bpm-domain `hr_succdiff_rms` proxy.
+    Defaults to NaN so the existing PSG path (which doesn't have true SDNN)
+    keeps using the proxy.
+    """
     pre_sleep_hr_bpm: float
     avg_sleep_hr_bpm: float
     min_sleep_hr_bpm: float
@@ -70,6 +78,7 @@ class PhysioSummary:
     hr_drift_bpm_per_hour: float
     hr_succdiff_rms: float
     sleep_movement_index: float
+    hrv_sdnn_ms: float = float("nan")
 
 
 @dataclass(frozen=True)
@@ -369,12 +378,19 @@ def _score_recovery(
 
     if physio is not None and np.isfinite(physio.hr_dip_pct):
         dip_pts = 25.0 * _saturating(physio.hr_dip_pct, _OPTIMAL_HR_DIP)
-        hrv_pts = 20.0 * _saturating(physio.hr_succdiff_rms, _HRV_PROXY_GOOD)
+        # Prefer real Apple-reported SDNN (ms) when available; otherwise fall
+        # back to the bpm-domain succdiff RMS proxy from raw HR samples.
+        if np.isfinite(physio.hrv_sdnn_ms):
+            hrv_pts = 20.0 * _saturating(physio.hrv_sdnn_ms, _HRV_SDNN_GOOD_MS)
+            hrv_label = "hrv_sdnn"
+        else:
+            hrv_pts = 20.0 * _saturating(physio.hr_succdiff_rms, _HRV_PROXY_GOOD)
+            hrv_label = "hrv_proxy"
         drift_pts = 15.0 * _saturating_neg(max(physio.hr_drift_bpm_per_hour, 0.0), _BAD_HR_DRIFT_BPM_PER_HR)
         components = {
             "sleep_contribution": sleep_pts,
             "hr_dip": dip_pts,
-            "hrv_proxy": hrv_pts,
+            hrv_label: hrv_pts,
             "hr_stability": drift_pts,
         }
     else:
@@ -399,11 +415,16 @@ def _score_stress(
 ) -> tuple[float, dict]:
     if physio is not None and np.isfinite(physio.avg_sleep_hr_bpm):
         autonomic_arousal = 30.0 * (1.0 - _saturating(physio.hr_dip_pct, _OPTIMAL_HR_DIP))
-        low_hrv = 25.0 * (1.0 - _saturating(physio.hr_succdiff_rms, _HRV_PROXY_GOOD))
+        if np.isfinite(physio.hrv_sdnn_ms):
+            low_hrv = 25.0 * (1.0 - _saturating(physio.hrv_sdnn_ms, _HRV_SDNN_GOOD_MS))
+            low_hrv_label = "low_hrv_sdnn"
+        else:
+            low_hrv = 25.0 * (1.0 - _saturating(physio.hr_succdiff_rms, _HRV_PROXY_GOOD))
+            low_hrv_label = "low_hrv_proxy"
         overnight_climb = 15.0 * _saturating(max(physio.hr_drift_bpm_per_hour, 0.0), _BAD_HR_DRIFT_BPM_PER_HR)
         components = {
             "autonomic_arousal": autonomic_arousal,
-            "low_hrv": low_hrv,
+            low_hrv_label: low_hrv,
             "overnight_hr_climb": overnight_climb,
         }
     else:

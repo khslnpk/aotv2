@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Sleep Twin — Model Comparison Report</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-deep: #06070d;
+      --bg-canvas: #0a0c1a;
+      --bg-card: rgba(255, 255, 255, 0.04);
+      --border: rgba(255, 255, 255, 0.10);
+      --border-hi: rgba(255, 255, 255, 0.18);
+      --text: #e8e9f3;
+      --text-muted: #8c8fa6;
+      --text-faint: #5a5d75;
+      --c-recovery: #00d9c0;
+      --c-sleep: #8b5cf6;
+      --c-stress: #ec4899;
+      --c-fatigue: #f59e0b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0;
+      background: var(--bg-deep);
+      color: var(--text);
+      font-family: "Inter", system-ui, sans-serif;
+      font-size: 15px; line-height: 1.55;
+      color-scheme: dark;
+    }
+    body::before {
+      content: ""; position: fixed; inset: 0; z-index: -1;
+      background:
+        radial-gradient(ellipse at 20% 0%, rgba(139,92,246,0.08), transparent 50%),
+        radial-gradient(ellipse at 80% 100%, rgba(0,217,192,0.06), transparent 50%),
+        radial-gradient(ellipse at top, #0d1130 0%, #06070d 60%);
+    }
+    .page { max-width: 1440px; margin: 0 auto; padding: 56px 32px; }
+    .nav {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 28px;
+    }
+    .brand {
+      font-family: "Fraunces", serif;
+      font-weight: 500; font-size: 22px;
+      letter-spacing: -0.01em;
+    }
+    .brand small {
+      display: inline-block; margin-left: 12px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+      color: var(--text-faint);
+    }
+    h1 {
+      font-family: "Fraunces", serif;
+      font-weight: 500;
+      font-size: clamp(42px, 6vw, 64px);
+      letter-spacing: -0.025em;
+      line-height: 1.05;
+      margin: 0 0 14px;
+      background: linear-gradient(180deg, #ffffff 0%, var(--c-recovery) 100%);
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .lede {
+      max-width: 720px; color: var(--text-muted);
+      font-family: "Fraunces", serif;
+      font-weight: 400; font-size: 17px; line-height: 1.65;
+      margin: 0 0 40px;
+    }
+    h2 {
+      font-family: "Fraunces", serif;
+      font-weight: 500; font-size: 26px;
+      letter-spacing: -0.012em;
+      margin: 0 0 18px;
+    }
+    h3 {
+      font-family: "Fraunces", serif;
+      font-weight: 500; font-size: 18px;
+      margin: 0 0 14px;
+    }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 28px 32px;
+      margin: 24px 0;
+      backdrop-filter: blur(30px) saturate(150%);
+      box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 24px 64px -32px rgba(0,0,0,0.7);
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+      margin: 28px 0 40px;
+    }
+    .stat {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 20px;
+    }
+    .stat .stat-label {
+      font: 500 11px "JetBrains Mono", monospace;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--text-faint);
+      margin-bottom: 8px;
+    }
+    .stat .stat-value {
+      font-family: "Fraunces", serif;
+      font-size: 22px; letter-spacing: -0.01em;
+    }
+    .stat .stat-detail {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px; color: var(--c-recovery);
+      margin-top: 2px;
+    }
+    .viz-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+      gap: 22px;
+      margin: 18px 0;
+    }
+    .viz-card {
+      background: white;
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 12px 32px -16px rgba(0,0,0,0.6);
+    }
+    .viz-card h3 {
+      color: #1a1d2e;
+      font-family: "Inter", sans-serif;
+      font-weight: 600;
+      font-size: 14px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin: 0 0 12px;
+    }
+    .viz-card img { width: 100%; height: auto; display: block; border-radius: 8px; }
+    .confusion-img {
+      width: 100%; max-width: 980px;
+      margin: 0 auto;
+      display: block; border-radius: 12px;
+      background: white; padding: 16px;
+    }
+    .table-wrap { overflow-x: auto; margin: 16px 0 8px; }
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 13.5px;
+      font-family: "JetBrains Mono", monospace;
+      min-width: 760px;
+    }
+    th, td {
+      padding: 11px 14px;
+      text-align: right;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    th {
+      background: rgba(255,255,255,0.03);
+      color: var(--text-faint);
+      font-weight: 500;
+      font-size: 10.5px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+    th:first-child, td:first-child { text-align: left; }
+    th:nth-child(2), td:nth-child(2) { text-align: left; }
+    table.leaderboard-table tr.ensemble-row-top td {
+      background: linear-gradient(90deg, rgba(0,217,192,0.10), rgba(139,92,246,0.06));
+      color: var(--text);
+    }
+    table.leaderboard-table tr.ensemble-row-top td:nth-child(2)::after {
+      content: " ★";
+      color: var(--c-recovery);
+    }
+    code {
+      font-family: "JetBrains Mono", monospace;
+      background: rgba(255,255,255,0.05);
+      padding: 1px 6px;
+      border-radius: 4px;
+      color: var(--text);
+      font-size: 12.5px;
+    }
+    .footer {
+      margin-top: 60px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      font: 500 11px "JetBrains Mono", monospace;
+      color: var(--text-faint);
+      letter-spacing: 0.12em;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="nav">
+      <div class="brand">Sleep Twin <small>Model Comparison Report</small></div>
+      <div class="brand"><small>v0.2 · 5 base learners · 16 ensemble configs</small></div>
+    </div>
+
+    <h1>How the models actually behave</h1>
+    <p class="lede">
+      A behavior-first comparison of the five trained base learners and the 16
+      ensemble + HMM configurations. Each panel separates a different question — minority-stage
+      recall, confusion patterns, ranking trade-offs across competing metrics. The final ensemble
+      leaderboard at the bottom is the headline result; the per-model panels above explain why
+      different models earn their places on it.
+    </p>
+
+    <div class="stats-grid">
+      <div class="stat">
+        <div class="stat-label">Best base macro F1</div>
+        <div class="stat-value">LightGBM</div>
+        <div class="stat-detail">0.676</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Best Wake recall</div>
+        <div class="stat-value">CatBoost</div>
+        <div class="stat-detail">0.600</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Best REM recall</div>
+        <div class="stat-value">CatBoost (Optuna-tuned)</div>
+        <div class="stat-detail">0.785</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Most even recall</div>
+        <div class="stat-value">CatBoost</div>
+        <div class="stat-detail">0.834</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Behavior visuals</h2>
+      <p style="color: var(--text-muted); margin: 0 0 18px;">
+        Six panels separated by question. Each card embeds a single panel so the labels stay readable.
+      </p>
+      <div class="viz-grid">
+        <div class="viz-card"><h3>Model skill fingerprint</h3><img src="panel_skill_fingerprint.png" alt="Model skill fingerprint"></div>
+        <div class="viz-card"><h3>Minority-stage frontier</h3><img src="panel_minority_frontier.png" alt="Minority-stage frontier"></div>
+        <div class="viz-card"><h3>Confusion fingerprint</h3><img src="panel_confusion_fingerprint.png" alt="Confusion fingerprint"></div>
+        <div class="viz-card"><h3>Metric constellation</h3><img src="panel_metric_constellation.png" alt="Metric constellation"></div>
+        <div class="viz-card"><h3>Rank ribbons</h3><img src="panel_rank_ribbons.png" alt="Rank ribbons"></div>
+        <div class="viz-card"><h3>Top-model radar</h3><img src="panel_top_model_radar.png" alt="Top model radar"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Confusion matrices</h2>
+      <p style="color: var(--text-muted); margin: 0 0 18px;">
+        Each cell shows row-normalized percent and raw count. Rows are actual stages; columns are predicted stages.
+      </p>
+      <img class="confusion-img" src="confusion_matrices_normalized.png" alt="Normalized confusion matrices">
+    </div>
+
+    <div class="card">
+      <h2>Base-learner summary</h2>
+      <div class="table-wrap"><table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th>model</th>
+      <th>family</th>
+      <th>accuracy</th>
+      <th>balanced_accuracy</th>
+      <th>macro_f1</th>
+      <th>cohen_kappa</th>
+      <th>wake_recall</th>
+      <th>rem_recall</th>
+      <th>recall_balance</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>LightGBM</td>
+      <td>Boosting</td>
+      <td>0.780</td>
+      <td>0.660</td>
+      <td>0.676</td>
+      <td>0.518</td>
+      <td>0.480</td>
+      <td>0.635</td>
+      <td>0.613</td>
+    </tr>
+    <tr>
+      <td>CatBoost (Optuna-tuned)</td>
+      <td>Boosting</td>
+      <td>0.754</td>
+      <td>0.705</td>
+      <td>0.675</td>
+      <td>0.520</td>
+      <td>0.560</td>
+      <td>0.785</td>
+      <td>0.775</td>
+    </tr>
+    <tr>
+      <td>XGBoost (CUDA)</td>
+      <td>Boosting</td>
+      <td>0.759</td>
+      <td>0.663</td>
+      <td>0.665</td>
+      <td>0.493</td>
+      <td>0.501</td>
+      <td>0.664</td>
+      <td>0.677</td>
+    </tr>
+    <tr>
+      <td>CatBoost</td>
+      <td>Boosting</td>
+      <td>0.737</td>
+      <td>0.704</td>
+      <td>0.664</td>
+      <td>0.497</td>
+      <td>0.600</td>
+      <td>0.766</td>
+      <td>0.834</td>
+    </tr>
+    <tr>
+      <td>BiLSTM + attention</td>
+      <td>Sequence</td>
+      <td>0.720</td>
+      <td>0.659</td>
+      <td>0.632</td>
+      <td>0.440</td>
+      <td>0.593</td>
+      <td>0.612</td>
+      <td>0.821</td>
+    </tr>
+  </tbody>
+</table></div>
+    </div>
+
+    <div class="card">
+      <h2>Per-class F1</h2>
+      <div class="table-wrap"><table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th>label</th>
+      <th>NREM F1</th>
+      <th>REM F1</th>
+      <th>WAKE F1</th>
+    </tr>
+    <tr>
+      <th>model</th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>LightGBM</th>
+      <td>0.852</td>
+      <td>0.639</td>
+      <td>0.537</td>
+    </tr>
+    <tr>
+      <th>CatBoost (Optuna-tuned)</th>
+      <td>0.824</td>
+      <td>0.659</td>
+      <td>0.542</td>
+    </tr>
+    <tr>
+      <th>XGBoost (CUDA)</th>
+      <td>0.834</td>
+      <td>0.623</td>
+      <td>0.537</td>
+    </tr>
+    <tr>
+      <th>CatBoost</th>
+      <td>0.810</td>
+      <td>0.636</td>
+      <td>0.547</td>
+    </tr>
+    <tr>
+      <th>BiLSTM + attention</th>
+      <td>0.804</td>
+      <td>0.578</td>
+      <td>0.512</td>
+    </tr>
+  </tbody>
+</table></div>
+    </div>
+
+    <div class="card">
+      <h2>Ensemble + HMM leaderboard <small style="color: var(--text-faint); font-size: 13px; font-weight: 400;">— headline result, sorted by macro F1</small></h2>
+      <p style="color: var(--text-muted); margin: 0 0 14px;">
+        The full ablation across every base model, every ensemble head (arithmetic mean, geometric mean,
+        logistic-regression stack), and HMM/Viterbi smoothing applied per subject. The top two rows are
+        the project's co-winners depending on which metric you optimize.
+      </p>
+      <div class="table-wrap"><table class='leaderboard-table'><thead><tr><th>Rank</th><th>Model</th><th>Accuracy</th><th>Bal acc</th><th>Macro F1</th><th>Wtd F1</th><th>Kappa</th></tr></thead><tbody><tr class='ensemble-row-top'><td>1</td><td><code>base_catboost_hmm</code></td><td>0.7746</td><td>0.7159</td><td>0.6993</td><td>0.7793</td><td>0.5501</td></tr><tr class='ensemble-row-top'><td>2</td><td><code>avg_geo_hmm</code></td><td>0.8035</td><td>0.6745</td><td>0.6932</td><td>0.7978</td><td>0.5695</td></tr><tr class=''><td>3</td><td><code>avg_mean_hmm</code></td><td>0.8022</td><td>0.6733</td><td>0.6921</td><td>0.7965</td><td>0.5668</td></tr><tr class=''><td>4</td><td><code>avg_geo</code></td><td>0.7772</td><td>0.6973</td><td>0.6901</td><td>0.7795</td><td>0.5388</td></tr><tr class=''><td>5</td><td><code>avg_mean</code></td><td>0.7754</td><td>0.6975</td><td>0.6892</td><td>0.7780</td><td>0.5368</td></tr><tr class=''><td>6</td><td><code>base_catboost_tuned_hmm</code></td><td>0.7816</td><td>0.6870</td><td>0.6814</td><td>0.7820</td><td>0.5515</td></tr><tr class=''><td>7</td><td><code>base_lightgbm</code></td><td>0.7796</td><td>0.6605</td><td>0.6762</td><td>0.7761</td><td>0.5176</td></tr><tr class=''><td>8</td><td><code>base_catboost_tuned</code></td><td>0.7538</td><td>0.7053</td><td>0.6750</td><td>0.7615</td><td>0.5201</td></tr><tr class=''><td>9</td><td><code>base_lightgbm_hmm</code></td><td>0.7897</td><td>0.6332</td><td>0.6687</td><td>0.7794</td><td>0.5153</td></tr><tr class=''><td>10</td><td><code>base_xgboost_cuda_hmm</code></td><td>0.7766</td><td>0.6456</td><td>0.6667</td><td>0.7715</td><td>0.5079</td></tr><tr class=''><td>11</td><td><code>stack_logreg_C0.3</code></td><td>0.7902</td><td>0.6234</td><td>0.6666</td><td>0.7762</td><td>0.4992</td></tr><tr class=''><td>12</td><td><code>base_xgboost_cuda</code></td><td>0.7588</td><td>0.6631</td><td>0.6646</td><td>0.7599</td><td>0.4934</td></tr><tr class=''><td>13</td><td><code>base_catboost</code></td><td>0.7369</td><td>0.7041</td><td>0.6641</td><td>0.7470</td><td>0.4968</td></tr><tr class=''><td>14</td><td><code>stack_logreg_C0.3_hmm</code></td><td>0.7973</td><td>0.6096</td><td>0.6619</td><td>0.7795</td><td>0.5030</td></tr><tr class=''><td>15</td><td><code>base_bilstm_attention_hmm</code></td><td>0.7312</td><td>0.6460</td><td>0.6368</td><td>0.7348</td><td>0.4462</td></tr><tr class=''><td>16</td><td><code>base_bilstm_attention</code></td><td>0.7201</td><td>0.6589</td><td>0.6315</td><td>0.7273</td><td>0.4402</td></tr></tbody></table></div>
+    </div>
+
+    <div class="card">
+      <h2>Interpretation</h2>
+      <p>
+        <strong style="color: var(--text);">CatBoost is the standout single learner.</strong>
+        Its raw probabilities have the highest balanced accuracy among single boosters and
+        the highest minority-class recall. HMM smoothing then converts that minority-class
+        strength into the project's best macro F1 (0.6993) and best balanced accuracy
+        (0.7159) — without sacrificing the gains.
+      </p>
+      <p>
+        <strong style="color: var(--text);">The geometric-mean ensemble + HMM (avg_geo_hmm) is the headline number.</strong>
+        Log-averaging the base probabilities and then Viterbi-decoding the result crosses
+        80 % accuracy with Cohen's κ = 0.5695 — the strongest end-to-end configuration in
+        the project. Geometric mean edges arithmetic mean by a hair because log-averaging
+        is more robust to one model being confidently wrong.
+      </p>
+      <p>
+        <strong style="color: var(--text);">The logistic-regression stack underperforms simple averaging.</strong>
+        Base models perfectly memorize their training set, so the meta-learner fits on
+        optimistic in-sample probabilities. Proper out-of-fold stacking would fix this at
+        the cost of 5× the boosting compute — deferred work.
+      </p>
+      <p>
+        <strong style="color: var(--text);">BiLSTM is the weakest single learner but a useful ensemble ingredient.</strong>
+        Macro F1 0.6315 alone, but it contributes meaningfully to <code>avg_geo_hmm</code> —
+        its different inductive bias gives the ensemble information the boosters lack.
+      </p>
+    </div>
+
+    <div class="footer">
+      Generated from <code>artifacts/models/</code> · scripts/visualize_model_results.py · Sleep Twin v0.2
+    </div>
+  </div>
+</body>
+</html>
