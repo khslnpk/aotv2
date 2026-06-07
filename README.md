@@ -1,5 +1,7 @@
 # Sleep Twin
 
+Demo video: https://youtu.be/inWKjfZPOfg
+
 Wearable sleep-stage classifier + Digital Twin scoring layer.
 
 Take 30-second epochs of wrist motion, heart rate, and step data, predict whether each epoch is **Wake / NREM / REM**, smooth the resulting hypnogram, and turn it into a virtual human-state model with six interpretable scores: **recovery, fatigue, stress, energy, sleep quality, sleep debt**.
